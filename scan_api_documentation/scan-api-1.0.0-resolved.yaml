@@ -14,7 +14,7 @@ paths:
       requestBody:
         description: Body parameters
         content:
-          object:
+          application/json:
             schema:
               $ref: '#/components/schemas/validate_body'
         required: true
@@ -43,7 +43,7 @@ paths:
       requestBody:
         description: Body parameters
         content:
-          object:
+          application/json:
             schema:
               $ref: '#/components/schemas/notify_body'
         required: true
