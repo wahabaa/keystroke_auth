@@ -95,7 +95,7 @@ celery -A scan_api.celery worker --loglevel=info
 <br>
 <h2><strong> Keystrokes Logger File</strong></h2>
 
-The `logger.js` file has been provided to unintrusively captures user's keystrokes data while they attempt to login. To use this code, please follow the steps below.
+The `logger.js` file has been provided to unintrusively capture user's keystrokes data while they attempt to login. To use this code, please follow the steps below.
 
 1. Add the line below into the html code. Kindly change the "path" to the path where the logger.js file is.
 
@@ -103,8 +103,7 @@ The `logger.js` file has been provided to unintrusively captures user's keystrok
 <script src="<path>/logger.js"></script>
 ```
 
-2. Ensure these IDs are used for the username, password and the form:
- For the `logger.js` script to work, these IDs must be used for the username, password and the form: `login_form`, `username` and `pwd`. See example below.
+2. For the `logger.js` script to work, these IDs must be used for the username, password and the form: `login_form`, `username` and `pwd`. See example below.
 
  ```html
 <form id="login_form" method="POST">
