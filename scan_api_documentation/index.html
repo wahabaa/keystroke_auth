@@ -874,7 +874,7 @@
                           <div class="tab-pane active" id="examples-Default-notifyPost-0-curl">
                            <pre class="prettyprint"><code class="language-bsh">curl -X POST\
 -H "Accept: application/json"\
--H "Content-Type: object"\
+-H "Content-Type: application/json"\
 "https://8f1e-67-249-20-200.ngrok.io/notify"</code></pre>
                           </div>
                           <div class="tab-pane" id="examples-Default-notifyPost-0-java">
@@ -1068,7 +1068,7 @@ except ApiException as e:
                                   var schemaWrapper = {
   "description" : "Body parameters",
   "content" : {
-    "object" : {
+    "application/json" : {
       "schema" : {
         "$ref" : "#/components/schemas/notify_body"
       }
@@ -1076,7 +1076,7 @@ except ApiException as e:
   },
   "required" : true
 };
-                                  var schema = schemaWrapper.content["object"].schema;
+                                  var schema = schemaWrapper.content["application/json"].schema;
                                   if (schema.$ref != null) {
                                     schema = defsParser.$refs.get(schema.$ref);
                                   } else {
@@ -1234,7 +1234,7 @@ except ApiException as e:
                           <div class="tab-pane active" id="examples-Default-validatePost-0-curl">
                            <pre class="prettyprint"><code class="language-bsh">curl -X POST\
 -H "Accept: application/json"\
--H "Content-Type: object"\
+-H "Content-Type: application/json"\
 "https://8f1e-67-249-20-200.ngrok.io/validate"</code></pre>
                           </div>
                           <div class="tab-pane" id="examples-Default-validatePost-0-java">
@@ -1428,7 +1428,7 @@ except ApiException as e:
                                   var schemaWrapper = {
   "description" : "Body parameters",
   "content" : {
-    "object" : {
+    "application/json" : {
       "schema" : {
         "$ref" : "#/components/schemas/validate_body"
       }
@@ -1436,7 +1436,7 @@ except ApiException as e:
   },
   "required" : true
 };
-                                  var schema = schemaWrapper.content["object"].schema;
+                                  var schema = schemaWrapper.content["application/json"].schema;
                                   if (schema.$ref != null) {
                                     schema = defsParser.$refs.get(schema.$ref);
                                   } else {
