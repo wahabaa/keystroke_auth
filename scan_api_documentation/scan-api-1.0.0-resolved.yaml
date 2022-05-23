@@ -1,0 +1,139 @@
+---
+openapi: 3.0.0
+info:
+  title: ScanApi
+  description: Frictionless Authentication
+  version: 1.0.0
+servers:
+- url: https://8f1e-67-249-20-200.ngrok.io
+  description: Test server
+paths:
+  /validate:
+    post:
+      summary: Validate Behavioral data.
+      requestBody:
+        description: Body parameters
+        content:
+          object:
+            schema:
+              $ref: '#/components/schemas/validate_body'
+        required: true
+      responses:
+        "200":
+          description: Successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/validate_response_200'
+        "400":
+          description: Failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/validate_response_400'
+        "401":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/validate_response_401'
+  /notify:
+    post:
+      summary: API for updating user's profile after passing other MFA.
+      requestBody:
+        description: Body parameters
+        content:
+          object:
+            schema:
+              $ref: '#/components/schemas/notify_body'
+        required: true
+      responses:
+        "200":
+          description: Successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/notify_response_200'
+        "401":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/notify_response_401'
+components:
+  schemas:
+    validate_body:
+      type: object
+      properties:
+        user:
+          type: string
+          description: user's id
+        k_data:
+          type: string
+          description: keystrokes data
+        customer_key:
+          type: string
+          description: customer signing key (A)
+    notify_body:
+      type: object
+      properties:
+        user:
+          type: string
+          description: user's id
+        isPassed:
+          type: boolean
+          description: True if user passed other MFA
+    validate_response_200:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "200"
+        status:
+          type: string
+          example: approved
+        user:
+          type: string
+          example: "100"
+    validate_response_400:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "400"
+        status:
+          type: string
+          example: denied
+        user:
+          type: string
+          example: "100"
+    validate_response_401:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "401"
+        error:
+          type: string
+          example: invalid input
+    notify_response_200:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "200"
+        status:
+          type: string
+          example: successful
+        user:
+          type: string
+          example: "100"
+    notify_response_401:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "401"
+        error:
+          type: string
+          example: nothing to delete
