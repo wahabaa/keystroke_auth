@@ -1,7 +1,7 @@
 ---
 openapi: 3.0.0
 info:
-  title: ScanApi
+  title: Keystroke Auth API
   description: Frictionless Authentication
   version: 1.0.0
 servers:
