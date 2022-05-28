@@ -94,6 +94,6 @@ lform.onsubmit = function() {
 
 <h2><strong> Swagger API Documentation</strong></h2>
 
-Please look into the `scan_api_documentation` folder for the API endpoints, the parameters that each endpoint takes and their responses.
+The Swagger api documentation can be found here https://8f1e-67-249-20-200.ngrok.io/swagger_api/.
 
 

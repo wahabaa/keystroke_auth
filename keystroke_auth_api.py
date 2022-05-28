@@ -128,10 +128,10 @@ class RejectKeys(db.Model):
 
 
 # Get Derived key -------------------------------------------------------------------------
-def getAESkey(secret, A): # Derived key
+def getAESkey(secret, customer_sig): # Derived key
     salt, iv, B_str = map(unhexlify, secret.split('-'))
     B = SigningKey.from_string(B_str, curve=NIST256p)
-    signature = B.sign_deterministic(A.encode('utf8'), hashfunc=hashlib.sha256).hex()
+    signature = B.sign_deterministic(customer_sig.encode('utf8'), hashfunc=hashlib.sha256).hex()
     AES_key = hashlib.pbkdf2_hmac("sha256", signature.encode("utf8"), salt, 1000)
     return AES_key.hex(), iv.hex()
 # -----------------------------------------------------------------------------------------
@@ -147,9 +147,9 @@ def encrypt_db_data(data, aes, iv):
 
 
 # Decrypt data from Database--------------------------------------------------------------
-def decrypt_db_data(data, A):
+def decrypt_db_data(data, customer_sig):
     decrypted_data = []
-    AES_key, iv = getAESkey(salt_iv_key, A)
+    AES_key, iv = getAESkey(salt_iv_key, customer_sig)
     aes = AESGCM(unhexlify(AES_key))
     for row in data:
         decData = aes.decrypt(unhexlify(iv), unhexlify(row.data), None)
@@ -236,9 +236,12 @@ def validate():
         posted_data = request.get_json()
         '''Get user ID and customer key and keystroke data'''
         try:
-            sample = json.loads(posted_data['k_data'])
+            if type(posted_data['k_data']) == list:
+                sample = posted_data['k_data']
+            else:
+                sample = json.loads(posted_data['k_data'])
             user = str(posted_data['user'])
-            A = str(posted_data['customer_key'])
+            customer_sig = str(posted_data['customer_sig'])
         except Exception as e:
             return {'error':'Invalid input', "code":401}
         
@@ -248,7 +251,7 @@ def validate():
             last_data = Keystrokes.query.filter_by(user=user).order_by(Keystrokes.id.desc()).first()
             if last_data is None: # It's first attempt
                 # Get the derived AES key
-                AES_key, iv = getAESkey(salt_iv_key, A)
+                AES_key, iv = getAESkey(salt_iv_key, customer_sig)
                 # Add first attempt keystrokes data to Database
                 save_keystrokes.delay(user, sample, 0, 0.0, 'building_template', AES_key, iv)
                 resp = {"user": user,"status": 'building template', "code":200}
@@ -258,7 +261,7 @@ def validate():
                 last_iter = int(last_data.iteration)
                 if last_iter < 5:   # Add keystrokes to DB
                     # Get the derived AES key
-                    AES_key, iv = getAESkey(salt_iv_key, A)
+                    AES_key, iv = getAESkey(salt_iv_key, customer_sig)
                     # Add attempt keystrokes data to Database
                     save_keystrokes.delay(user, sample, last_iter, 0.0, 'building_template', AES_key, iv)
                     resp = {"user": user,"status": 'building template', "code":200}
@@ -267,7 +270,7 @@ def validate():
                 # Get profile from DB
                 profile = Keystrokes.query.filter_by(user=user).all()
                 # Decrypt data coming from database ------------
-                profile = decrypt_db_data(profile, A)
+                profile = decrypt_db_data(profile, customer_sig)
                 profile_k1 = sorted([(int(k['ts']), k['kn'], int(k['r'])) for k in profile if 'username' in k['wn'] or 'email' in k['wn']])
                 sample_k1 = sorted([(k['ts'], k['kn'], k['r']) for k in sample if 'username' in k['wn'] or 'email' in k['wn']])
                 profile_k2 = sorted([(int(k['ts']), k['kn'], int(k['r'])) for k in profile if k['wn'] == 'pwd' or k['wn'] == 'password'])
@@ -294,12 +297,12 @@ def validate():
                         status = 'approved'
                         code = 200
                         # Add keystrokes to DB
-                        AES_key, iv = getAESkey(salt_iv_key, A)
+                        AES_key, iv = getAESkey(salt_iv_key, customer_sig)
                         save_keystrokes.delay(user, sample, last_iter, dist_score, status, AES_key, iv)
                     else:
                         status = 'denied'
                         code = 400
-                        AES_key, iv = getAESkey(salt_iv_key, A)
+                        AES_key, iv = getAESkey(salt_iv_key, customer_sig)
                         save_reject_keystrokes.delay(user, sample, dist_score, AES_key, iv)
                     resp = {"user": user,"status": status,"code":code}
                     return resp
