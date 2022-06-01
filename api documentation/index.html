@@ -689,6 +689,20 @@
   <script>
     // Script section to load models into a JS Var
     var defs = {}
+            defs["inline_response_200"] = {
+  "oneOf" : [ {
+    "$ref" : "#/components/schemas/validate_response_200a"
+  }, {
+    "$ref" : "#/components/schemas/validate_response_200b"
+  } ]
+};
+            defs["inline_response_401"] = {
+  "oneOf" : [ {
+    "$ref" : "#/components/schemas/notify_response_401a"
+  }, {
+    "$ref" : "#/components/schemas/notify_response_401b"
+  } ]
+};
             defs["notify_body"] = {
   "type" : "object",
   "properties" : {
@@ -706,12 +720,12 @@
   "type" : "object",
   "properties" : {
     "code" : {
-      "type" : "string",
-      "example" : "200"
+      "type" : "integer",
+      "example" : 200
     },
     "status" : {
       "type" : "string",
-      "example" : "successful"
+      "example" : "Successful"
     },
     "user" : {
       "type" : "string",
@@ -719,19 +733,34 @@
     }
   }
 };
-            defs["notify_response_401"] = {
+            defs["notify_response_401a"] = {
   "type" : "object",
   "properties" : {
     "code" : {
-      "type" : "string",
-      "example" : "401"
+      "type" : "integer",
+      "example" : 401
     },
     "error" : {
       "type" : "string",
-      "example" : "nothing to delete"
+      "example" : "Nothing to delete"
     }
   }
 };
+            defs["notify_response_401b"] = {
+  "type" : "object",
+  "properties" : {
+    "code" : {
+      "type" : "integer",
+      "example" : 401
+    },
+    "error" : {
+      "type" : "string",
+      "example" : "Invalid input"
+    }
+  }
+};
+            defs["OneOfinline_response_200"] = {};
+            defs["OneOfinline_response_401"] = {};
             defs["validate_body"] = {
   "type" : "object",
   "properties" : {
@@ -749,16 +778,33 @@
     }
   }
 };
-            defs["validate_response_200"] = {
+            defs["validate_response_200a"] = {
   "type" : "object",
   "properties" : {
     "code" : {
-      "type" : "string",
-      "example" : "200"
+      "type" : "integer",
+      "example" : 200
     },
     "status" : {
       "type" : "string",
-      "example" : "approved"
+      "example" : "Building template"
+    },
+    "user" : {
+      "type" : "string",
+      "example" : "100"
+    }
+  }
+};
+            defs["validate_response_200b"] = {
+  "type" : "object",
+  "properties" : {
+    "code" : {
+      "type" : "integer",
+      "example" : 200
+    },
+    "status" : {
+      "type" : "string",
+      "example" : "Approved"
     },
     "user" : {
       "type" : "string",
@@ -770,12 +816,12 @@
   "type" : "object",
   "properties" : {
     "code" : {
-      "type" : "string",
-      "example" : "400"
+      "type" : "integer",
+      "example" : 400
     },
     "status" : {
       "type" : "string",
-      "example" : "denied"
+      "example" : "Denied"
     },
     "user" : {
       "type" : "string",
@@ -787,12 +833,12 @@
   "type" : "object",
   "properties" : {
     "code" : {
-      "type" : "string",
-      "example" : "401"
+      "type" : "integer",
+      "example" : 401
     },
     "error" : {
       "type" : "string",
-      "example" : "invalid input"
+      "example" : "Invalid input"
     }
   }
 };
@@ -1168,7 +1214,7 @@ except ApiException as e:
   "content" : {
     "application/json" : {
       "schema" : {
-        "$ref" : "#/components/schemas/notify_response_401"
+        "$ref" : "#/components/schemas/inline_response_401"
       }
     }
   }
@@ -1253,7 +1299,7 @@ public class DefaultApiExample {
         DefaultApi apiInstance = new DefaultApi();
         Validate_body body = ; // Validate_body | Body parameters
         try {
-            validate_response_200 result = apiInstance.validatePost(body);
+            inline_response_200 result = apiInstance.validatePost(body);
             System.out.println(result);
         } catch (ApiException e) {
             System.err.println("Exception when calling DefaultApi#validatePost");
@@ -1272,7 +1318,7 @@ public class DefaultApiExample {
         DefaultApi apiInstance = new DefaultApi();
         Validate_body body = ; // Validate_body | Body parameters
         try {
-            validate_response_200 result = apiInstance.validatePost(body);
+            inline_response_200 result = apiInstance.validatePost(body);
             System.out.println(result);
         } catch (ApiException e) {
             System.err.println("Exception when calling DefaultApi#validatePost");
@@ -1292,7 +1338,7 @@ DefaultApi *apiInstance = [[DefaultApi alloc] init];
 
 // Validate Behavioral data.
 [apiInstance validatePostWith:body
-              completionHandler: ^(validate_response_200 output, NSError* error) {
+              completionHandler: ^(inline_response_200 output, NSError* error) {
                             if (output) {
                                 NSLog(@"%@", output);
                             }
@@ -1343,7 +1389,7 @@ namespace Example
             try
             {
                 // Validate Behavioral data.
-                validate_response_200 result = apiInstance.validatePost(body);
+                inline_response_200 result = apiInstance.validatePost(body);
                 Debug.WriteLine(result);
             }
             catch (Exception e)
@@ -1480,7 +1526,7 @@ except ApiException as e:
   "content" : {
     "application/json" : {
       "schema" : {
-        "$ref" : "#/components/schemas/validate_response_200"
+        "$ref" : "#/components/schemas/inline_response_200"
       }
     }
   }
