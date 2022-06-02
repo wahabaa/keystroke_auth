@@ -185,6 +185,8 @@ def movekeystrokes(user, reject_keys_data, last_iter):
     except:
         db.session.rollback()
         raise
+    finally:
+        db.session.close()
     return
 
 def delete_record(user, iter):
@@ -358,7 +360,6 @@ def notify():
                     last_iter = int(last_data.iteration)
                     # Move the data to Keystrokes table
                     movekeystrokes(user, reject_keys_data, last_iter)
-                    db.session.close() # Close DB session
                     print('Data Moved successfully!')
                     # Delete the data from reject_keys table
                     delete_record(user, reject_keys_last_iter)

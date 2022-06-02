@@ -94,7 +94,7 @@ The automated unit tests can be done by running the `api_test.py` file. This tes
 <LI>Test 2: is for a successful keystroke authentication.</LI>
 <LI>Test 3: is for a failed keystroke authentication.</LI>
 <LI>Test 4: is for testing how the api responds when invalid data is posted.</LI>
-<LI>Test 5: is for a successful profile updating when the /notify endpoint is called.</LI>
+<LI>Test 5: is for a successful profile updating when the `/notify` endpoint is called.</LI>
 <LI>Test 6: is a failed profile updating attempt because there was nothing to update.</LI>
 <LI>Test 7: is also a failed profile updating attempt because invalid input was posted.</LI>
 </UL>
