@@ -1,7 +1,7 @@
 import time
 import logging
 import requests
-from flask import Flask, jsonify, request, render_template, session
+from flask import Flask, jsonify, make_response, request, render_template, session
 import json
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -17,16 +17,19 @@ from binascii import hexlify, unhexlify
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from math import floor
 from math import sqrt
+
+import werkzeug
 from secret import GoogleSecret
 
 
 # Get Salt_iv_B and DB Password from Google Secret Manager ---------------------------------------
 '''
 This code gets Salt_iv_B and DB Password from Google Secret Manager
-through the secret.py file
+through the secret.py file. Please store these secrets (salt_iv_B and DB password) on Google Secret
+Manager beforehand.
 Args: 
-    secret_key: salt_iv_B key
-    db_key: DB key
+    key1: salt_iv_B key
+    key: DB key
 
 Returns: salt_iv_key and DB_password
 '''
@@ -44,21 +47,17 @@ salt_iv_key, DB_password = getSecrets(salt_iv_B_key, db_key)
 # -----------------------------------------------------------------------------------------------
 
 
-# Set up FLASK, Database Connection and Celery --------------------------------------------------
+# Set up FLASK and Database Connection ----------------------------------------------------------
 app = Flask(__name__)
 DB_name = 'soteria'
 DB_user = 'root'
 host = 'localhost'
-app.config['CELERY_BROKER_URL'] = 'sqla+mysql://'+DB_user+':'+DB_password+'@'+host+'/'+DB_name
-app.config['result_backend'] = 'db+mysql://root:'+DB_password+'@'+host+'/'+DB_name
-celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
-celery.conf.update(app.config)
 CORS(app)
 logging.getLogger('flask_cors').level = logging.DEBUG
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://'+DB_user+':'+DB_password+'@'+host+'/'+DB_name
 db = SQLAlchemy(app)
-# ----------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------
 
 
 # Keystroke Algorithm------------------------------------------
@@ -157,11 +156,10 @@ def decrypt_db_data(data, customer_sig):
         decData = decData.decode('utf8')
         decrypted_data.append(json.loads(decData))
     return decrypted_data
-# ---------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
 
 
-# BACKGROUND TASKS TO STORE DATA IN DATABASE---------------------------------------------
-@celery.task(name='celery_add_keys')
+# STORE, MOVE AND DELETE DATA IN DATABASE-------------------------------------------------
 def save_keystrokes(user, sample_data, last_iter, score, status, AES_key, iv):
     aes = AESGCM(unhexlify(AES_key))
     for k in sample_data:
@@ -169,19 +167,6 @@ def save_keystrokes(user, sample_data, last_iter, score, status, AES_key, iv):
         enc_data = encrypt_db_data(json.dumps(data), aes, iv) # Encrypt data with AES before storing to DB
         push = Keystrokes(user=user, data=enc_data, iteration=last_iter+1)
         db.session.add(push)
-        try:
-            db.session.commit()
-        except:
-            db.session.rollback()
-            raise
-        finally:
-            db.session.close()
-    return 'Added to DB successfully!'
-
-@celery.task(name='celery_move_keys')
-def movekeystrokes(user, data, last_iter):
-    push = Keystrokes(user=user, data=data, iteration=last_iter+1)
-    db.session.add(push)
     try:
         db.session.commit()
     except:
@@ -189,9 +174,19 @@ def movekeystrokes(user, data, last_iter):
         raise
     finally:
         db.session.close()
+    return 'Added to DB successfully!'
+
+def movekeystrokes(user, reject_keys_data, last_iter):
+    for k in reject_keys_data:
+        push = Keystrokes(user=user, data=k.data, iteration=last_iter+1)
+        db.session.add(push)
+    try:
+        db.session.commit()
+    except:
+        db.session.rollback()
+        raise
     return
 
-@celery.task(name='celery_delete_keys')
 def delete_record(user, iter):
     db.session.query(RejectKeys).filter(RejectKeys.user==user, RejectKeys.iteration==iter).delete()
     try:
@@ -201,9 +196,8 @@ def delete_record(user, iter):
         raise
     finally:
         db.session.close()
-    return 'Data Deleted successfully!'
+    return 'Data deleted successfully!'
     
-@celery.task(name='celery_add_reject_keys')
 def save_reject_keystrokes(user, sample_data, score, AES_key, iv):
     aes = AESGCM(unhexlify(AES_key))
     try:
@@ -216,14 +210,14 @@ def save_reject_keystrokes(user, sample_data, score, AES_key, iv):
         enc_data = encrypt_db_data(json.dumps(data), aes, iv)
         push = RejectKeys(user=user, data=enc_data, iteration=int(last_iter)+1)
         db.session.add(push)
-        try:
-            db.session.commit()
-        except:
-            db.session.rollback()
-            raise
-        finally:
-            db.session.close()
-    return 'Added to Reject Table successfully!'
+    try:
+        db.session.commit()
+    except:
+        db.session.rollback()
+        raise
+    finally:
+        db.session.close()
+    return 'Added to reject table successfully!'
 # ----------------------------------------------------------------------------------------
 
 
@@ -231,8 +225,12 @@ def save_reject_keystrokes(user, sample_data, score, AES_key, iv):
 @app.route('/validate', methods=['GET','POST'])
 def validate():
     start = time.time()
+    CODE_200 = 200
+    CODE_400 = 400
+    CODE_401 = 401
     if request.method == 'POST':
         user, threshold = '', 0.6
+        profile_size = 5
         posted_data = request.get_json()
         '''Get user ID and customer key and keystroke data'''
         try:
@@ -243,34 +241,46 @@ def validate():
             user = str(posted_data['user'])
             customer_sig = str(posted_data['customer_sig'])
         except Exception as e:
-            return {'error':'Invalid input', "code":401}
+            resp_ = {'error':'Invalid input', "code":CODE_401}
+            resp = make_response(resp_, CODE_401)
+            return resp
         
         if len(sample) < 1: # No keystroke data
-            return {'error':'Invalid input', "code":401}
-        if user != '': # Check if user exist in db
+            resp_ = {'error':'Invalid input', "code":CODE_401}
+            resp = make_response(resp_, CODE_401)
+            return resp
+        if user != '':
+            # Check if user exist in db
             last_data = Keystrokes.query.filter_by(user=user).order_by(Keystrokes.id.desc()).first()
             if last_data is None: # It's first attempt
                 # Get the derived AES key
                 AES_key, iv = getAESkey(salt_iv_key, customer_sig)
                 # Add first attempt keystrokes data to Database
-                save_keystrokes.delay(user, sample, 0, 0.0, 'building_template', AES_key, iv)
-                resp = {"user": user,"status": 'building template', "code":200}
+                save_keystrokes(user, sample, 0, 0.0, 'building_template', AES_key, iv)
                 print('User not in DB and now added.\n-> Time:', time.time() - start)
-                return  resp
+                resp_ = {"user": user,"status": 'Building template', "code":CODE_200}
+                resp = make_response(resp_, CODE_200)
+                return resp
             else:   # Not the first attempt
                 last_iter = int(last_data.iteration)
-                if last_iter < 5:   # Add keystrokes to DB
+                if last_iter < profile_size:   # Add keystrokes to DB
                     # Get the derived AES key
                     AES_key, iv = getAESkey(salt_iv_key, customer_sig)
                     # Add attempt keystrokes data to Database
-                    save_keystrokes.delay(user, sample, last_iter, 0.0, 'building_template', AES_key, iv)
-                    resp = {"user": user,"status": 'building template', "code":200}
+                    save_keystrokes(user, sample, last_iter, 0.0, 'building_template', AES_key, iv)
                     print('User found', time.time() - start)
+                    resp_ = {"user": user,"status": 'Building template', "code":CODE_200}
+                    resp = make_response(resp_, CODE_200)
                     return  resp
                 # Get profile from DB
                 profile = Keystrokes.query.filter_by(user=user).all()
                 # Decrypt data coming from database ------------
-                profile = decrypt_db_data(profile, customer_sig)
+                try:
+                    profile = decrypt_db_data(profile, customer_sig)
+                except Exception as e:
+                    resp_ = {'error':'Invalid input', "code":CODE_401}
+                    resp = make_response(resp_, CODE_401)
+                    return resp
                 profile_k1 = sorted([(int(k['ts']), k['kn'], int(k['r'])) for k in profile if 'username' in k['wn'] or 'email' in k['wn']])
                 sample_k1 = sorted([(k['ts'], k['kn'], k['r']) for k in sample if 'username' in k['wn'] or 'email' in k['wn']])
                 profile_k2 = sorted([(int(k['ts']), k['kn'], int(k['r'])) for k in profile if k['wn'] == 'pwd' or k['wn'] == 'password'])
@@ -280,10 +290,14 @@ def validate():
                 # Use Keystroke Algorithm ----------------
                 score1, graph_instance1, shared_graphs1, main_graph1 = axfcafgca43vchc(profile_k1, sample_k1) # Username or email
                 if score1 == -1:
-                    return {'error':'Insufficient data', "code":401}
+                    resp_ = {'error':'Invalid input', "code":CODE_401} # Insufficient data
+                    resp = make_response(resp_, CODE_401)
+                    return resp
                 score2, graph_instance2, shared_graphs2, main_graph2 = axfcafgca43vchc(profile_k2, sample_k2) # Password
                 if score2 == -1:
-                    return {'error':'Insufficient data', "code":401}
+                    resp_ = {'error':'Invalid input', "code":CODE_401} #Insufficient data
+                    resp = make_response(resp_, CODE_401)
+                    return resp
                 total_graph_instance = graph_instance1 + graph_instance2
                 w1 = graph_instance1 / total_graph_instance
                 w2 = graph_instance2 / total_graph_instance
@@ -294,30 +308,41 @@ def validate():
 
                 if shared_graphs1+shared_graphs2 >= min_digraph:
                     if dist_score <= threshold: # distance thresholding
-                        status = 'approved'
-                        code = 200
+                        status = 'Approved'
                         # Add keystrokes to DB
                         AES_key, iv = getAESkey(salt_iv_key, customer_sig)
-                        save_keystrokes.delay(user, sample, last_iter, dist_score, status, AES_key, iv)
+                        save_keystrokes(user, sample, last_iter, dist_score, status, AES_key, iv)
+                        resp_ = {"user": user,"status": status,"code":CODE_200}
+                        resp = make_response(resp_, CODE_200)
                     else:
-                        status = 'denied'
-                        code = 400
+                        status = 'Denied'
                         AES_key, iv = getAESkey(salt_iv_key, customer_sig)
-                        save_reject_keystrokes.delay(user, sample, dist_score, AES_key, iv)
-                    resp = {"user": user,"status": status,"code":code}
+                        save_reject_keystrokes(user, sample, dist_score, AES_key, iv)
+                        resp_ = {"user": user,"status": status,"code":CODE_400}
+                        resp = make_response(resp_, CODE_400)
                     return resp
                 else:
-                    return {'error':'Insufficient data', "code":401}
-        return {'error':'Invalid User ID. Please register first', "code":401}
-    return {'welcome': 'Welcome to Keystroke Dynamics Authentication'}
+                    resp_ = {'error':'Invalid input', "code":CODE_401} # Insufficient data
+                    resp = make_response(resp_, CODE_401)
+                    return resp
+        resp_ = {'error':'Invalid input', "code":CODE_401}
+        resp = make_response(resp_, CODE_401)
+        return resp
 
 
 
-# NOTIFY ENDPOINT: FOR GETIING NOTIFIED IF USER PASSED OTHER 2FA
+# NOTIFY ENDPOINT: WE GET NOTIFIED THROUGH THIS ENDPOINT IF USER PASSED OTHER 2FA, THEN WE UPDATE USER"S PROFILE
 @app.route('/notify', methods=('GET', 'POST'))
 def notify():
+    CODE_200 = 200
+    CODE_401 = 401
     if request.method == 'POST':
-        notify_msg = request.get_json()
+        try:
+            notify_msg = request.get_json()
+        except Exception as e:
+            resp_ = {"error": "Invalid input","code":CODE_401}
+            resp = make_response(resp_, CODE_401)
+            return resp
         '''Get boolean 'isPassed' '''
         try:
             isPassed = notify_msg['isPassed']
@@ -332,23 +357,25 @@ def notify():
                     last_data = Keystrokes.query.filter_by(user=user).order_by(Keystrokes.id.desc()).first()
                     last_iter = int(last_data.iteration)
                     # Move the data to Keystrokes table
-                    for k in reject_keys_data:
-                        movekeystrokes.delay(user, k.data, last_iter)
+                    movekeystrokes(user, reject_keys_data, last_iter)
+                    db.session.close() # Close DB session
                     print('Data Moved successfully!')
                     # Delete the data from reject_keys table
                     delete_record(user, reject_keys_last_iter)
-                    resp = {"user": user,"status": "Successful","code":200}
+                    resp_ = {"user": user,"status": "Successful","code":CODE_200}
+                    resp = make_response(resp_, CODE_200)
                 else:
-                    resp = {"error": "Nothing to delete","code":401}
+                    resp_ = {"error": "Nothing to delete","code":CODE_401}
+                    resp = make_response(resp_, CODE_401)
                 return resp
             else:
-                resp = {"error": "Nothing to delete, User failed other MFA","code":401}
+                resp_ = {"error": "Nothing to delete","code":CODE_401}
+                resp = make_response(resp_, CODE_401)
                 return resp
         except Exception as e:
-            resp = {"error": "Wrong data passed!","code":401}
+            resp_ = {"error": "Invalid input","code":CODE_401}
+            resp = make_response(resp_, CODE_401)
             return resp
-    resp = {"error": "Something went wrong!","code":401}
-    return resp
 
 
 # ==============================================================================

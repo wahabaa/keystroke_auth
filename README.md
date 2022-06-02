@@ -25,19 +25,15 @@ db_key = ''
 salt_iv_key, DB_password = getSecrets(salt_iv_B_key, db_key)
 ```
 
-<h3><Strong>Setting Up Flask, Database Connection and Celery</strong></h3>
+<h3><Strong>Setting Up Flask and Database Connection</strong></h3>
 
-The API was built with `Flask` running with `MYSQL` database and `Celery` was used for storing data into the database asynchroneously. It is important to update the `DB_name`, `DB_user` and `host` in order to establish a connection to the database.
+The API was built with `Flask` running with `MYSQL` database. It is important to update the `DB_name`, `DB_user` and `host` in order to establish a connection to the database.
 
 ```python
 app = Flask(__name__)
 DB_name = 'soteria'
 DB_user = 'root'
 host = 'localhost'
-app.config['CELERY_BROKER_URL'] = 'sqla+mysql://'+DB_user+':'+DB_password+'@'+host+'/'+DB_name
-app.config['result_backend'] = 'db+mysql://root:'+DB_password+'@'+host+'/'+DB_name
-celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
-celery.conf.update(app.config)
 CORS(app)
 logging.getLogger('flask_cors').level = logging.DEBUG
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -47,17 +43,13 @@ db = SQLAlchemy(app)
 
 <h3><Strong>Launching the API</strong></h3>
 
-1. Run the `scan_api.py` file. If at production, you should change `debug=True` to `debug=False` before running the file.
+1. Run the `keystroke_auth_api.py` file. If at production, you should change `debug=True` to `debug=False` before running the file.
 2. To automatically create the database tables, enter the below codes in the terminal.
 ```
 export FLASK_APP=keystroke_auth_api
 flask shell
-from scan_api import db
+from keystroke_auth_api import db
 db.create_all()
-```
-3. To start Celery background process, type this in the terminal.
-```
-celery -A keystroke_auth_api.celery worker --loglevel=info
 ```
 
 <br>
@@ -92,6 +84,22 @@ lform.onsubmit = function() {
 ```
 <br>
 
+<br>
+<h2><strong> Automated Unit Tests</strong></h2>
+
+The automated unit tests can be done by running the `api_test.py` file. This test script contains a total of 7 tests. 
+
+<UL>
+<LI>Test 1: is for enrollment (creating user's profile) when `/validate` is called.</LI>
+<LI>Test 2: is for a successful keystroke authentication.</LI>
+<LI>Test 3: is for a failed keystroke authentication.</LI>
+<LI>Test 4: is for testing how the api responds when invalid data is posted.</LI>
+<LI>Test 5: is for a successful profile updating when the /notify endpoint is called.</LI>
+<LI>Test 6: is a failed profile updating attempt because there was nothing to update.</LI>
+<LI>Test 7: is also a failed profile updating attempt because invalid input was posted.</LI>
+</UL>
+
+<br><br>
 <h2><strong> Swagger API Documentation</strong></h2>
 
 The Swagger api documentation can be found here https://8f1e-67-249-20-200.ngrok.io/swagger_api/.
