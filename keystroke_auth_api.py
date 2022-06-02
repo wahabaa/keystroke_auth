@@ -226,7 +226,7 @@ def save_reject_keystrokes(user, sample_data, score, AES_key, iv):
 # Validate Endpoint ------------------------------------------------------------------------
 @app.route('/validate', methods=['GET','POST'])
 def validate():
-    start = time.time()
+    # start = time.time()
     CODE_200 = 200
     CODE_400 = 400
     CODE_401 = 401
@@ -259,7 +259,7 @@ def validate():
                 AES_key, iv = getAESkey(salt_iv_key, customer_sig)
                 # Add first attempt keystrokes data to Database
                 save_keystrokes(user, sample, 0, 0.0, 'building_template', AES_key, iv)
-                print('User not in DB and now added.\n-> Time:', time.time() - start)
+                # print('User not in DB and now added.\n-> Time:', time.time() - start)
                 resp_ = {"user": user,"status": 'Building template', "code":CODE_200}
                 resp = make_response(resp_, CODE_200)
                 return resp
@@ -270,7 +270,7 @@ def validate():
                     AES_key, iv = getAESkey(salt_iv_key, customer_sig)
                     # Add attempt keystrokes data to Database
                     save_keystrokes(user, sample, last_iter, 0.0, 'building_template', AES_key, iv)
-                    print('User found', time.time() - start)
+                    # print('User found', time.time() - start)
                     resp_ = {"user": user,"status": 'Building template', "code":CODE_200}
                     resp = make_response(resp_, CODE_200)
                     return  resp
@@ -304,7 +304,7 @@ def validate():
                 w1 = graph_instance1 / total_graph_instance
                 w2 = graph_instance2 / total_graph_instance
                 dist_score = ((w1 * score1) + (w2 * score2)) * 0.5
-                print('Final Score: ', dist_score)
+                # print('Final Score: ', dist_score)
                 min_digraph = floor(0.8 * (main_graph1 + main_graph2))  # 80% information shared digraph
                 # ----------------------------------------------
 
@@ -360,7 +360,6 @@ def notify():
                     last_iter = int(last_data.iteration)
                     # Move the data to Keystrokes table
                     movekeystrokes(user, reject_keys_data, last_iter)
-                    print('Data Moved successfully!')
                     # Delete the data from reject_keys table
                     delete_record(user, reject_keys_last_iter)
                     resp_ = {"user": user,"status": "Successful","code":CODE_200}
