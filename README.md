@@ -55,19 +55,28 @@ db.create_all()
 <br>
 <h2><strong> Keystrokes Logger File</strong></h2>
 
-The `logger.js` file has been provided to unintrusively capture user's keystrokes data while they attempt to login. To use this code, please follow the steps below.
+Two javascript files have been provided to unintrusively capture user's keystrokes data while they attempt to login. The `logger_username.js` is used to capture keystrokes data from the username field, while the `logger_pwd.js` capture keystrokes data from the password field. Each of the javascript files will be added to their respective HTML pages. To use this code, please follow the steps below.
 
-1. Add the line below into the html code. Kindly change the "path" to the path where the logger.js file is.
+1. Add the line below into the html code. Kindly change the "path" to the path where the `logger_username.js` file is. Do the same on the password login page.
 
 ```html
-<script src="<path>/logger.js"></script>
+<script src="<path>/logger_username.js"></script>
 ```
 
-2. For the `logger.js` script to work, these IDs must be used for the username, password and the form: `login_form`, `username` and `pwd`. See example below.
+2. For the scripts to work, these IDs must be used for the username, password and the form: `login_form`, `username` and `pwd`. See example below.
 
  ```html
+ # In the username login page.
 <form id="login_form" method="POST">
     <input type="text" id="username" name="username" placeholder="Username">
+    <input type="submit" id="login" value="Login">
+</form>
+ ```
+
+
+```html
+# In the password login page
+<form id="login_form" method="POST">
     <input type="password" id="pwd" name="pwd" placeholder="Password">
     <input type="submit" id="login" value="Login">
 </form>
@@ -78,7 +87,7 @@ The `logger.js` file has been provided to unintrusively capture user's keystroke
  ```javascript
  // Handle the login form submit
 lform.onsubmit = function() {
-    k_data = getKeystrokesData() // User's keystrokes data
+    k_username = getKeystrokesData() // User's username keystrokes data
     // ... Add codes to send POST request to Gluu endpoint if neccessary
 };
 ```

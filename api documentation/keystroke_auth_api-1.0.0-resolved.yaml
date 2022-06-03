@@ -68,9 +68,12 @@ components:
         user:
           type: string
           description: user's id
-        k_data:
+        k_username:
           type: string
-          description: keystrokes data
+          description: userId keystrokes data
+        k_pwd:
+          type: string
+          description: password keystrokes data
         customer_sig:
           type: string
           description: customer sig - A(uid)

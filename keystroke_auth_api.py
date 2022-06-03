@@ -160,9 +160,14 @@ def decrypt_db_data(data, customer_sig):
 
 
 # STORE, MOVE AND DELETE DATA IN DATABASE-------------------------------------------------
-def save_keystrokes(user, sample_data, last_iter, score, status, AES_key, iv):
+def save_keystrokes(user, sample_usrname, sample_pwd, last_iter, score, status, AES_key, iv):
     aes = AESGCM(unhexlify(AES_key))
-    for k in sample_data:
+    for k in sample_usrname:
+        data = {"kn": k['kn'], "r": k['r'], "ts": k['ts'], "wn": k['wn'], "score":score, "status":status}
+        enc_data = encrypt_db_data(json.dumps(data), aes, iv) # Encrypt data with AES before storing to DB
+        push = Keystrokes(user=user, data=enc_data, iteration=last_iter+1)
+        db.session.add(push)
+    for k in sample_pwd:
         data = {"kn": k['kn'], "r": k['r'], "ts": k['ts'], "wn": k['wn'], "score":score, "status":status}
         enc_data = encrypt_db_data(json.dumps(data), aes, iv) # Encrypt data with AES before storing to DB
         push = Keystrokes(user=user, data=enc_data, iteration=last_iter+1)
@@ -200,14 +205,19 @@ def delete_record(user, iter):
         db.session.close()
     return 'Data deleted successfully!'
     
-def save_reject_keystrokes(user, sample_data, score, AES_key, iv):
+def save_reject_keystrokes(user, sample_usrname, sample_pwd, score, AES_key, iv):
     aes = AESGCM(unhexlify(AES_key))
     try:
         last_data = RejectKeys.query.filter_by(user=user).order_by(RejectKeys.id.desc()).first()
         last_iter = last_data.iteration
     except:
         last_iter = 0
-    for k in sample_data:
+    for k in sample_usrname:
+        data = {"kn": k['kn'], "r": k['r'], "ts": k['ts'], "wn": k['wn'], "score":score}
+        enc_data = encrypt_db_data(json.dumps(data), aes, iv)
+        push = RejectKeys(user=user, data=enc_data, iteration=int(last_iter)+1)
+        db.session.add(push)
+    for k in sample_pwd:
         data = {"kn": k['kn'], "r": k['r'], "ts": k['ts'], "wn": k['wn'], "score":score}
         enc_data = encrypt_db_data(json.dumps(data), aes, iv)
         push = RejectKeys(user=user, data=enc_data, iteration=int(last_iter)+1)
@@ -219,7 +229,7 @@ def save_reject_keystrokes(user, sample_data, score, AES_key, iv):
         raise
     finally:
         db.session.close()
-    return 'Added to reject table successfully!'
+    return 'Added to Reject Table successfully!'
 # ----------------------------------------------------------------------------------------
 
 
@@ -236,10 +246,14 @@ def validate():
         posted_data = request.get_json()
         '''Get user ID and customer key and keystroke data'''
         try:
-            if type(posted_data['k_data']) == list:
-                sample = posted_data['k_data']
-            else:
-                sample = json.loads(posted_data['k_data'])
+            if type(posted_data['k_username']) == str:
+                sample_userId = json.loads(posted_data['k_username'])
+            elif type(posted_data['k_username']) == list:
+                sample_userId = posted_data['k_username']
+            if type(posted_data['k_pwd']) == str:
+                sample_pwd = json.loads(posted_data['k_pwd'])
+            elif type(posted_data['k_pwd']) == list:
+                sample_pwd = posted_data['k_pwd']
             user = str(posted_data['user'])
             customer_sig = str(posted_data['customer_sig'])
         except Exception as e:
@@ -247,7 +261,7 @@ def validate():
             resp = make_response(resp_, CODE_401)
             return resp
         
-        if len(sample) < 1: # No keystroke data
+        if len(sample_pwd) < 1 or len(sample_userId) < 1: # No keystroke data
             resp_ = {'error':'Invalid input', "code":CODE_401}
             resp = make_response(resp_, CODE_401)
             return resp
@@ -258,7 +272,7 @@ def validate():
                 # Get the derived AES key
                 AES_key, iv = getAESkey(salt_iv_key, customer_sig)
                 # Add first attempt keystrokes data to Database
-                save_keystrokes(user, sample, 0, 0.0, 'building_template', AES_key, iv)
+                save_keystrokes(user, sample_userId, sample_pwd, 0, 0.0, 'building_template', AES_key, iv)
                 # print('User not in DB and now added.\n-> Time:', time.time() - start)
                 resp_ = {"user": user,"status": 'Building template', "code":CODE_200}
                 resp = make_response(resp_, CODE_200)
@@ -269,7 +283,7 @@ def validate():
                     # Get the derived AES key
                     AES_key, iv = getAESkey(salt_iv_key, customer_sig)
                     # Add attempt keystrokes data to Database
-                    save_keystrokes(user, sample, last_iter, 0.0, 'building_template', AES_key, iv)
+                    save_keystrokes(user, sample_userId, sample_pwd, last_iter, 0.0, 'building_template', AES_key, iv)
                     # print('User found', time.time() - start)
                     resp_ = {"user": user,"status": 'Building template', "code":CODE_200}
                     resp = make_response(resp_, CODE_200)
@@ -283,19 +297,19 @@ def validate():
                     resp_ = {'error':'Invalid input', "code":CODE_401}
                     resp = make_response(resp_, CODE_401)
                     return resp
-                profile_k1 = sorted([(int(k['ts']), k['kn'], int(k['r'])) for k in profile if 'username' in k['wn'] or 'email' in k['wn']])
-                sample_k1 = sorted([(k['ts'], k['kn'], k['r']) for k in sample if 'username' in k['wn'] or 'email' in k['wn']])
-                profile_k2 = sorted([(int(k['ts']), k['kn'], int(k['r'])) for k in profile if k['wn'] == 'pwd' or k['wn'] == 'password'])
-                sample_k2 = sorted([(k['ts'], k['kn'], k['r']) for k in sample if k['wn'] == 'pwd' or k['wn'] == 'password'])
+                profile_userId = sorted([(int(k['ts']), k['kn'], int(k['r'])) for k in profile if 'username' in k['wn'] or 'email' in k['wn']])
+                profile_pwd = sorted([(int(k['ts']), k['kn'], int(k['r'])) for k in profile if k['wn'] == 'pwd' or k['wn'] == 'password'])
+                query_userId = sorted([(k['ts'], k['kn'], k['r']) for k in sample_userId])
+                query_pwd = sorted([(k['ts'], k['kn'], k['r']) for k in sample_pwd])
                 #-----------------------------------------------
 
                 # Use Keystroke Algorithm ----------------
-                score1, graph_instance1, shared_graphs1, main_graph1 = axfcafgca43vchc(profile_k1, sample_k1) # Username or email
+                score1, graph_instance1, shared_graphs1, main_graph1 = axfcafgca43vchc(profile_userId, query_userId) # Username or email
                 if score1 == -1:
                     resp_ = {'error':'Invalid input', "code":CODE_401} # Insufficient data
                     resp = make_response(resp_, CODE_401)
                     return resp
-                score2, graph_instance2, shared_graphs2, main_graph2 = axfcafgca43vchc(profile_k2, sample_k2) # Password
+                score2, graph_instance2, shared_graphs2, main_graph2 = axfcafgca43vchc(profile_pwd, query_pwd) # Password
                 if score2 == -1:
                     resp_ = {'error':'Invalid input', "code":CODE_401} #Insufficient data
                     resp = make_response(resp_, CODE_401)
@@ -313,13 +327,13 @@ def validate():
                         status = 'Approved'
                         # Add keystrokes to DB
                         AES_key, iv = getAESkey(salt_iv_key, customer_sig)
-                        save_keystrokes(user, sample, last_iter, dist_score, status, AES_key, iv)
+                        save_keystrokes(user, sample_userId, sample_pwd, last_iter, dist_score, status, AES_key, iv)
                         resp_ = {"user": user,"status": status,"code":CODE_200}
                         resp = make_response(resp_, CODE_200)
                     else:
                         status = 'Denied'
                         AES_key, iv = getAESkey(salt_iv_key, customer_sig)
-                        save_reject_keystrokes(user, sample, dist_score, AES_key, iv)
+                        save_reject_keystrokes(user, sample_userId, sample_pwd, dist_score, AES_key, iv)
                         resp_ = {"user": user,"status": status,"code":CODE_400}
                         resp = make_response(resp_, CODE_400)
                     return resp
